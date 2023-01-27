@@ -21,32 +21,34 @@ const ercAbi = [
 // npx hardhat test --network localhost
 // npx hardhat node --fork https://rpc.ankr.com/eth
 
-// 이더 -> 랩드 이더 -> DAI 스왑
 describe('SimpleSwap', function () {
+	// ETH -> WETH -> DAI 스왑
 	it('Should provide a caller with more DAI than they started with after a swap', async function () {
 		/* Deploy the SimpleSwap contract */
 		const simpleSwapFactory = await ethers.getContractFactory('SimpleSwap');
 		const simpleSwap = await simpleSwapFactory.deploy(SwapRouterAddress);
-		await simpleSwap.deployed();
-		const signers = await ethers.getSigners();
+		await simpleSwap.deployed(); // 컨트랙트 배포
+		const signers = await ethers.getSigners(); // hardhat 에서 제공하는 signer
 
 		/* Connect to WETH and wrap some eth  */
 		const WETH = new ethers.Contract(WETH_ADDRESS, ercAbi, signers[0]);
 		const deposit = await WETH.deposit({ value: ethers.utils.parseEther('1') });
-		await deposit.wait();
+		await deposit.wait(); // WETH 컨트랙트에 1 ETH 보내기 -> WETH 토큰 받음
 
 		/* Check Initial DAI Balance */
 		const DAI = new ethers.Contract(DAI_ADDRESS, ercAbi, signers[0]);
 		const expandedDAIBalanceBefore = await DAI.balanceOf(signers[0].address);
 		const DAIBalanceBefore = Number(
 			ethers.utils.formatUnits(expandedDAIBalanceBefore, DAI_DECIMALS),
-		);
+		); // DAI 토큰 잔고 확인
 
 		/* Approve the swapper contract to spend WETH for me */
+		// 잘 기억안나는데 WETH 컨트랙트에 스왑 컨트랙트에게 WETH 토큰을 스왑할 수 있는 권한을 주지 않으면 스왑이 안됐던걸로 기억합니다
 		await WETH.approve(simpleSwap.address, ethers.utils.parseEther('1'));
 
 		/* Execute the swap */
 		const amountIn = ethers.utils.parseEther('1');
+		// WETH -> DAI 스왑
 		const swap = await simpleSwap.swapWETHForDAI(amountIn, { gasLimit: 300000 });
 		swap.wait();
 
@@ -54,13 +56,15 @@ describe('SimpleSwap', function () {
 		const expandedDAIBalanceAfter = await DAI.balanceOf(signers[0].address);
 		const DAIBalanceAfter = Number(
 			ethers.utils.formatUnits(expandedDAIBalanceAfter, DAI_DECIMALS),
-		);
+		); // DAI 토큰 잔고 확인
 
 		console.log('DAI Balance Before: ', DAIBalanceBefore);
 		console.log('DAI Balance After: ', DAIBalanceAfter);
 
 		expect(DAIBalanceAfter).is.greaterThan(DAIBalanceBefore);
 	});
+
+	// ETH -> WETH -> USDC 스왑
 	it('Should provide a caller with more USDC than they started with after a swap', async function () {
 		/* Deploy the SimpleSwap contract */
 		const simpleSwapFactory = await ethers.getContractFactory('UsdcSwap');
@@ -100,6 +104,7 @@ describe('SimpleSwap', function () {
 		expect(UsdcBalanceAfter).is.greaterThan(UsdcBalanceBefore);
 	});
 
+	// 풀링 시도하다 못한 코드
 	it.skip('swap and pooling', async function () {
 		/* Deploy the SimpleSwap contract */
 		const LiquidityExampleFactory = await ethers.getContractFactory('LiquidityExamples');
